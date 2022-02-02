@@ -305,6 +305,7 @@ namespace pavlito
             if (decoded.ErrorCode != "00") return;
 
             var trimmed = decoded.Parameters[0].TrimStart();
+            Console.WriteLine("Наименование организации: " + trimmed);
             if (trimmed.Length < decoded.Parameters[0].Length)
             {
                 Console.WriteLine("Наименование огранизации содержит центрующие пробелы.");
@@ -315,8 +316,41 @@ namespace pavlito
             }
 
 
+            // Команда "Чтение таблицы настроек (0x11)"
+            // с параметрами 2, пустой
+            var packet11designNumber = CreatePacketByCode("11", "2", "0");
+            WritePacketToPort(port, packet11designNumber);
+            readedByteArray = AwaitResponse(port);
+            decoded = DecodePacket(readedByteArray);
+            if (decoded.ErrorCode != "00") return;
+            var pDesignNumberByte = Byte.Parse(decoded.Parameters[0]);
+            var pDesignNumberBits = new BitArray(new Byte[] { pDesignNumberByte });
+            Console.WriteLine(pDesignNumberByte);
+            Console.WriteLine("2 - Параметры чека(битовая маска):" + Convert.ToString(pDesignNumberByte, 2).PadLeft(8, '0'));
+            if (pDesignNumberBits[4] == true)
+            {
+                Console.WriteLine("Выбран корректный дизайн чека (16+).");
+            }
+            else
+            {
+                Console.WriteLine("Выбран НЕКОРРЕКТНЫЙ дизайн чека (16-).");
+            }
+
+            // Команда "Чтение таблицы настроек (0x11)"
+            // с параметром Место расчётов
+            var packet1185 = CreatePacketByCode("11", "85", "0");
+            WritePacketToPort(port, packet1185);
+
+            readedByteArray = AwaitResponse(port);
+            decoded = DecodePacket(readedByteArray);
+            if (decoded.ErrorCode != "00") return;
+
+            trimmed = decoded.Parameters[0].TrimStart();
+            Console.WriteLine("Место расчётов: " + trimmed);
+
+
             // Команда "Загрузить дизайн чека (0x17)"
-            var checkDesignBytes = System.IO.File.ReadAllBytes("new.DPirit_SD");
+            var checkDesignBytes = System.IO.File.ReadAllBytes("G.DPirit_SD");
             var checkDesignFileSize = checkDesignBytes.Length;
             var packet17 = CreatePacketByCode("17", checkDesignFileSize.ToString());
             WritePacketToPort(port, packet17);
@@ -347,59 +381,45 @@ namespace pavlito
 
 
 
-            //Console.WriteLine("Прогрузка логотипа.");
+            Console.WriteLine("Прогрузка логотипа.");
 
-            //var logoBmp = System.IO.File.ReadAllBytes("logo.bmp");
-            //var logoBmpSize = logoBmp.Length;
+            var logoBmp = System.IO.File.ReadAllBytes("G.bmp");
+            var logoBmpSize = logoBmp.Length;
 
-            //var logoBytes = new byte[logoBmpSize + 1];
-            //var logoBytesSize = logoBmpSize + 1;
+            var logoBytes = new byte[logoBmpSize + 1];
+            var logoBytesSize = logoBmpSize + 1;
 
-            //logoBytes[0] = LOGO_START;
-            //Array.Copy(logoBmp, 0, logoBytes, 1, logoBmpSize);
+            logoBytes[0] = LOGO_START;
+            Array.Copy(logoBmp, 0, logoBytes, 1, logoBmpSize);
 
-            //var packet15 = CreatePacketByCode("15", logoBytesSize.ToString());
-            //ConsolePrintPacket(packet15);
+            var packet15 = CreatePacketByCode("15", logoBytesSize.ToString());
+            ConsolePrintPacket(packet15);
 
-            //Console.WriteLine("После нажатия Enter команда будет отправлена.");
-            //Console.ReadLine();
-            //port.Write(packet15, 0, packet15.Length);
-            //Console.WriteLine("Команда отправлена.");
+            WritePacketToPort(port, packet15);
 
-            //Console.WriteLine("Ожидание ответа от ККМ (первый этап загрузки логотипа)...");
-            //result = port.ReadByte();
-            //Console.WriteLine("Пришёл ответ: " + result);
-            //if (result != 6)
-            //{
-            //    Console.WriteLine("Ответ некорректный.");
-            //    return;
-            //}
+            Console.WriteLine("Ожидание ответа от ККМ (первый этап загрузки логотипа)...");
+            result = port.ReadByte();
+            Console.WriteLine("Пришёл ответ: " + result);
+            if (result != 6)
+            {
+                Console.WriteLine("Ответ некорректный.");
+                return;
+            }
 
-            //Console.WriteLine("Ответ корректный.");
-            //Console.WriteLine("Отправка логотипа...");
-            //port.Write(logoBytes, 0, logoBytesSize);
+            Console.WriteLine("Ответ корректный.");
+            Console.WriteLine("Отправка логотипа...");
+            port.Write(logoBytes, 0, logoBytesSize);
 
-            //Thread.Sleep(1000);
-            //bytesCount = port.BytesToRead;
+            readedByteArray = AwaitResponse(port);
+            decoded = DecodePacket(readedByteArray);
 
-            //Console.WriteLine($"Байт в буфере порта: {bytesCount}");
-            //if (bytesCount == 0) return;
+            if (decoded.ErrorCode != "00")
+            {
+                Console.WriteLine("Ошибка.");
+                return;
+            }
+            Console.WriteLine("Прогрузка логотипа завершена успешно.");
 
-            //readedByteArray = new byte[bytesCount];
-            //Console.WriteLine($"Размер буфера: {readedByteArray.Length}");
-
-            //port.Read(readedByteArray, 0, bytesCount);
-            //readedHexString = BitConverter.ToString(readedByteArray);
-            //Console.WriteLine(readedHexString);
-
-            //decoded = DecodePacket(readedByteArray);
-
-            //Console.WriteLine($"CommandCode={decoded.CommandCode}");
-            //Console.WriteLine($"ErrorCode={decoded.ErrorCode}");
-            //Console.WriteLine($"PacketId={decoded.PacketId}");
-
-
-            //Console.WriteLine("Прогрузка логотипа завершена успешно.");
 
 
             Console.WriteLine("Попытка закрыть порт.");
